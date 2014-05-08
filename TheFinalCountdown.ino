@@ -1,15 +1,3 @@
-// Wire Master Writer
-// by Nicholas Zambetti <http://www.zambetti.com>
-
-// Demonstrates use of the Wire library
-// Writes data to an I2C/TWI slave device
-// Refer to the "Wire Slave Receiver" example for use with this
-
-// Created 29 March 2006
-
-// This example code is in the public domain.
-
-
 #include <Wire.h>
 #include <Time.h>
 #include <DS1307RTC.h>
@@ -38,6 +26,8 @@
 const long int aminute = 60;
 const long int anhour = 60 * aminute;
 const long int aday = 24 * anhour;
+
+unsigned long int countto = 0;
 
 void inline dispSmallNum(unsigned char num) {
   if (num < 10) {
@@ -102,8 +92,6 @@ void longToEEPROM(unsigned int address, unsigned long value) {
   EEPROM.write(address + 2, two);
   EEPROM.write(address + 3, one);
 }
-
-unsigned long int countto = 0;
 
 void setup()
 {
