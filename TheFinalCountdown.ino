@@ -23,6 +23,7 @@
 #define SCREEN_DECIMAL_FOURTH 0x08
 
 #define EEPROM_COUNT_TO 0x00
+#define PROMPT ">> "
 
 const long int aminute = 60;
 const long int anhour = 60 * aminute;
@@ -79,18 +80,39 @@ void loop()
 }
 
 void processSerialBuffer() {
-  Serial.println("");
-  
   // Blank command
   if (serialBufferPos == 0) return;
   
-  Serial.println("E002 - Unrecognised command");
+  // Get command Byte
+  switch (serialBuffer[0]) {
+    // Help
+    case '?':
+      showHelp();
+      break;
+      
+    // All others
+    default:
+      Serial.println("E002 - Unrecognised command");
+      break;
+  }
+  
   serialBufferPos = 0;
+  Serial.print(PROMPT);
 }
 
 void overflowSerialBuffer() {
+  Serial.println("");
   Serial.println("E001 - Command too long");
+  Serial.print(PROMPT);
   serialBufferPos = 0;
+}
+
+void showHelp() {
+  Serial.println("~~~ Help ~~~");
+  Serial.println("Commands Available:");
+  Serial.println("? - Give help");
+  Serial.println("");
+  Serial.println("");
 }
 
 void dispSmallNum(unsigned char num) {
