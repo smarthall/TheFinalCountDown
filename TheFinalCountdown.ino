@@ -37,6 +37,7 @@ void setup()
 {
   Wire.begin(); // join i2c bus (address optional for master)
   setSyncProvider(RTC.get); // Setup the clock
+  setSyncInterval(600);
   Serial.begin(9600); // Open a serial port
   countto = longFromEEPROM(EEPROM_COUNT_TO);
 }
@@ -79,6 +80,52 @@ void loop()
   }
 }
 
+void setTimeCommand() {
+  tmElements_t toSet;
+  // Check buffer is correct size
+  if (serialBufferPos != 15) {
+    Serial.println("E003 - Date doesn't seem to be valid");
+    return;
+  }
+  
+  // Get the input time
+  toSet = readTimeFromBuffer(serialBuffer + 1);
+  
+  // Set the time and apply to RTC device
+  setTime(makeTime(toSet));
+  RTC.set(now());
+  
+  // Let the user know
+  Serial.print("Time is: ");
+  printTime(toSet);
+  Serial.println("");
+  
+  Serial.println("Time has been set");
+}
+
+void setAlarmCommand() {
+  tmElements_t toSet;
+  // Check buffer is correct size
+  if (serialBufferPos != 15) {
+    Serial.println("E003 - Date doesn't seem to be valid");
+    return;
+  }
+  
+  // Get the input time
+  toSet = readTimeFromBuffer(serialBuffer + 1);
+  
+  // Set the time and apply to RTC device
+  countto = makeTime(toSet);
+  longToEEPROM(EEPROM_COUNT_TO, countto);
+  
+  // Let the user know
+  Serial.print("Alarm is: ");
+  printTime(toSet);
+  Serial.println("");
+  
+  Serial.println("Alarm has been set");
+}
+
 void processSerialBuffer() {
   // Blank command
   if (serialBufferPos == 0) return;
@@ -90,6 +137,21 @@ void processSerialBuffer() {
       showHelp();
       break;
       
+    // Set Time
+    case 'T':
+      setTimeCommand();
+      break;
+      
+    // Set Alarm
+    case 'A':
+      setAlarmCommand();
+      break;
+      
+    // Debug
+    case 'D':
+      debugCommand();
+      break;
+      
     // All others
     default:
       Serial.println("E002 - Unrecognised command");
@@ -98,6 +160,62 @@ void processSerialBuffer() {
   
   serialBufferPos = 0;
   Serial.print(PROMPT);
+}
+
+void debugCommand() {
+    tmElements_t toPrint;
+    
+    breakTime(now(), toPrint);
+    Serial.print("Current Time: ");
+    printTime(toPrint);
+    Serial.println("");
+    
+    breakTime(countto, toPrint);
+    Serial.print("Countdown Time: ");
+    printTime(toPrint);
+    Serial.println("");
+}
+
+long readIntFromBuffer(unsigned char *str, unsigned char len) {
+  int mag = 1;
+  long total = 0;
+  for (int i = len - 1; i >= 0; i--) {
+    unsigned char chr = str[i];
+    long charval = chr - 0x30;
+    total += charval * mag;
+    
+    mag *= 10;
+  }
+  
+  return total;
+}
+
+tmElements_t readTimeFromBuffer(unsigned char *str) {
+  tmElements_t readTime;
+  
+  readTime.Year = readIntFromBuffer(serialBuffer + 1, 4);
+  readTime.Year = readTime.Year - 1970; // Offset from 1970
+  readTime.Month = readIntFromBuffer(serialBuffer + 5, 2);
+  readTime.Day = readIntFromBuffer(serialBuffer + 7, 2);
+  readTime.Hour = readIntFromBuffer(serialBuffer + 9, 2);
+  readTime.Minute = readIntFromBuffer(serialBuffer + 11, 2);
+  readTime.Second = readIntFromBuffer(serialBuffer + 13, 2);
+  
+  return readTime;
+}
+
+void printTime(const tmElements_t &tm) {
+  Serial.print(tm.Year + 1970);
+  Serial.print("-");
+  Serial.print(tm.Month);
+  Serial.print("-");
+  Serial.print(tm.Day);
+  Serial.print(" ");
+  Serial.print(tm.Hour);
+  Serial.print(":");
+  Serial.print(tm.Minute);
+  Serial.print(":");
+  Serial.print(tm.Second);
 }
 
 void overflowSerialBuffer() {
@@ -111,6 +229,9 @@ void showHelp() {
   Serial.println("~~~ Help ~~~");
   Serial.println("Commands Available:");
   Serial.println("? - Give help");
+  Serial.println("T[YYYYMMDDHHMMSS] - Set the time");
+  Serial.println("A[YYYYMMDDHHMMSS] - Set the alarm");
+  Serial.println("D - Debug Info");
   Serial.println("");
   Serial.println("");
 }
@@ -127,7 +248,7 @@ void dispSmallNum(unsigned char num) {
 
 void dayScreen(unsigned int days, unsigned char tick) {
   String strNum = String(days);
-  unsigned int strLen = strNum.length();
+  int strLen = strNum.length();
   Wire.beginTransmission(DAY_SCREEN); // transmit to device
   Wire.write(SCREEN_CURSOR);
   Wire.write(SCREEN_CURSOR_FIRST);
