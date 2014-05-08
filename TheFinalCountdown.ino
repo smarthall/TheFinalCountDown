@@ -57,8 +57,40 @@ void loop()
   hmScreen(hours, minutes);
   
   if (Serial.available() > 0) {
+    // Read the character
     unsigned char incomingByte = Serial.read();
+    Serial.write(incomingByte);
+    
+    // Process the input line
+    if (incomingByte == '\n') {
+      processSerialBuffer();
+      return;
+    }
+    
+    // Give overflow error
+    if (serialBufferPos == SERIAL_BUFFER_SIZE) {
+      overflowSerialBuffer();
+      return;
+    }
+    
+    // Save the byte
+    serialBuffer[serialBufferPos++] = incomingByte;
   }
+}
+
+void processSerialBuffer() {
+  Serial.println("");
+  
+  // Blank command
+  if (serialBufferPos == 0) return;
+  
+  Serial.println("E002 - Unrecognised command");
+  serialBufferPos = 0;
+}
+
+void overflowSerialBuffer() {
+  Serial.println("E001 - Command too long");
+  serialBufferPos = 0;
 }
 
 void dispSmallNum(unsigned char num) {
