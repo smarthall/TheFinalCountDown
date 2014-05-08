@@ -5,6 +5,7 @@
 
 #define DAY_SCREEN 0x72
 #define HM_SCREEN 0x71
+#define SERIAL_BUFFER_SIZE 32
 
 #define SCREEN_CLEAR 0x76
 #define SCREEN_DECIMAL 0x77
@@ -28,8 +29,39 @@ const long int anhour = 60 * aminute;
 const long int aday = 24 * anhour;
 
 unsigned long int countto = 0;
+unsigned char serialBuffer[SERIAL_BUFFER_SIZE];
+unsigned char serialBufferPos = 0;
 
-void inline dispSmallNum(unsigned char num) {
+void setup()
+{
+  Wire.begin(); // join i2c bus (address optional for master)
+  setSyncProvider(RTC.get); // Setup the clock
+  Serial.begin(9600); // Open a serial port
+  countto = longFromEEPROM(EEPROM_COUNT_TO);
+}
+
+void loop()
+{
+  time_t timeNow = now();
+  unsigned long int remain = countto - timeNow;
+  
+  unsigned int days = remain / aday;
+  remain = remain % aday;
+  unsigned int hours = remain / anhour;
+  remain = remain % anhour;
+  unsigned int minutes = remain / aminute;
+  
+  unsigned int tick = remain % 4;
+
+  dayScreen(days, tick);
+  hmScreen(hours, minutes);
+  
+  if (Serial.available() > 0) {
+    unsigned char incomingByte = Serial.read();
+  }
+}
+
+void dispSmallNum(unsigned char num) {
   if (num < 10) {
     Wire.write('0');
     Wire.write(num);
@@ -93,27 +125,3 @@ void longToEEPROM(unsigned int address, unsigned long value) {
   EEPROM.write(address + 3, one);
 }
 
-void setup()
-{
-  Wire.begin(); // join i2c bus (address optional for master)
-  setSyncProvider(RTC.get); // Setup the clock
-  Serial.begin(9600); // Open a serial port
-  countto = longFromEEPROM(EEPROM_COUNT_TO);
-}
-
-void loop()
-{
-  time_t timeNow = now();
-  unsigned long int remain = countto - timeNow;
-  
-  unsigned int days = remain / aday;
-  remain = remain % aday;
-  unsigned int hours = remain / anhour;
-  remain = remain % anhour;
-  unsigned int minutes = remain / aminute;
-  
-  unsigned int tick = remain % 4;
-
-  dayScreen(days, tick);
-  hmScreen(hours, minutes);
-}
