@@ -3,13 +3,14 @@
 #include <DS1307RTC.h>
 #include <EEPROM.h>
 
-#define DAY_SCREEN 0x72
-#define HM_SCREEN 0x71
+#define DAY_SCREEN 0x71
+#define HM_SCREEN 0x72
 #define SERIAL_BUFFER_SIZE 32
 
 #define SCREEN_CLEAR 0x76
 #define SCREEN_DECIMAL 0x77
 #define SCREEN_CURSOR 0x79
+#define SCREEN_BRIGHTNESS 0x7A
 
 #define SCREEN_CURSOR_FIRST 0x00
 #define SCREEN_CURSOR_SECOND 0x00
@@ -78,6 +79,17 @@ void loop()
     // Save the byte
     serialBuffer[serialBufferPos++] = incomingByte;
   }
+}
+
+void setBrightness(unsigned char brightness) {
+  Wire.beginTransmission(DAY_SCREEN);
+  Wire.write(SCREEN_BRIGHTNESS);
+  Wire.write(brightness);
+  Wire.endTransmission();
+  Wire.beginTransmission(HM_SCREEN);
+  Wire.write(SCREEN_BRIGHTNESS);
+  Wire.write(brightness);
+  Wire.endTransmission();
 }
 
 void setTimeCommand() {
@@ -152,6 +164,11 @@ void processSerialBuffer() {
       debugCommand();
       break;
       
+    // Brightness
+    case 'B':
+      brightnessCommand();
+      break;
+      
     // All others
     default:
       Serial.println("E002 - Unrecognised command");
@@ -160,6 +177,22 @@ void processSerialBuffer() {
   
   serialBufferPos = 0;
   Serial.print(PROMPT);
+}
+
+void brightnessCommand() {
+  // Check buffer is correct size
+  if (serialBufferPos != 4) {
+    Serial.println("E003 - Date doesn't seem to be valid");
+    return;
+  }
+  
+  // Get the brightness, and set it
+  unsigned char brightness = (unsigned char) readIntFromBuffer(serialBuffer + 1, 3);
+  setBrightness(brightness);
+  
+  // Tell the user
+  Serial.print("New Brightness: ");
+  Serial.println(brightness);
 }
 
 void debugCommand() {
@@ -232,6 +265,7 @@ void showHelp() {
   Serial.println("T[YYYYMMDDHHMMSS] - Set the time");
   Serial.println("A[YYYYMMDDHHMMSS] - Set the alarm");
   Serial.println("D - Debug Info");
+  Serial.println("B[000] - Brightness");
   Serial.println("");
   Serial.println("");
 }
